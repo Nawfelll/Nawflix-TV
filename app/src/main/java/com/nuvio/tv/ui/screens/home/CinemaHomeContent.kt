@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -17,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
@@ -78,9 +78,10 @@ internal fun CinemaHomeContent(
     var showRegeCineClubQr by remember { mutableStateOf(false) }
     val catalogRows = remember(state.catalogRows) { state.catalogRows.filter { it.items.isNotEmpty() } }
     val rowLimit = if (potato) 12 else 24
-    // The shelves list spans the whole screen (it scrolls over the hero), so geometric "down" from the hero buttons
-    // cannot find it: point it explicitly at the first tile.
-    val entryTile = remember { FocusRequester() }
+    // LazyRow detaches off-screen tiles. Keep a requester for every weekly film and restore the last focused one.
+    val weeklyRowState = rememberLazyListState()
+    val weeklyTileRequesters = remember { weeklyMovieSelection.map { FocusRequester() } }
+    var weeklyFocusedIndex by remember { mutableIntStateOf(0) }
     val heroEntry = remember { FocusRequester() }
 
     val listState = rememberLazyListState()
@@ -97,8 +98,12 @@ internal fun CinemaHomeContent(
     }
     val focusFirstShelf: () -> Unit = {
         scope.launch {
+            val index = weeklyFocusedIndex.coerceIn(0, weeklyTileRequesters.lastIndex)
             listState.scrollToItem(0)
-            entryTile.requestFocus()
+            weeklyRowState.scrollToItem(index)
+            // Let LazyRow attach the target tile before requesting focus.
+            withFrameNanos { }
+            weeklyTileRequesters[index].requestFocus()
         }
     }
     val scrolledPastHero by remember {
@@ -166,7 +171,6 @@ internal fun CinemaHomeContent(
             onDetail = onDetail,
             onLibrary = onLibrary,
             onImport = onImport,
-            entryTile = entryTile,
             heroEntry = heroEntry,
             onFocus = scrollToTop,
             onDown = focusFirstShelf,
@@ -186,16 +190,16 @@ internal fun CinemaHomeContent(
         ) {
             item(key = "hero-spacer") { Spacer(Modifier.height(shelvesTop)) }
 
-            shelf(WEEKLY_KEY, "Film de la semaine") {
+            shelf(WEEKLY_KEY, "Film de la semaine", weeklyRowState) {
                 itemsIndexed(weeklyMovieSelection, key = { _, item -> item.id }) { index, item ->
                     CinemaTile(
                         title = item.name,
                         url = item.landscapePoster,
                         progress = null,
                         onClick = { onDetail(item.id, item.apiType, item.sourceAddonBaseUrl.orEmpty()) },
-                        onFocus = {},
+                        onFocus = { weeklyFocusedIndex = index },
                         potato = potato,
-                        modifier = firstShelfModifier(index == 0, entryTile, focusHero)
+                        modifier = firstShelfModifier(weeklyTileRequesters[index], focusHero)
                     )
                 }
             }
@@ -279,14 +283,14 @@ private const val WEEKLY_KEY = "weekly-movies"
 private const val REGE_KEY = "rege-cine-club-films"
 
 /** Route Up explicitly so a horizontally scrolled shelf always returns to a visible hero button. */
-private fun firstShelfModifier(isFirstTile: Boolean, entry: FocusRequester, onUp: () -> Unit): Modifier {
+private fun firstShelfModifier(entry: FocusRequester, onUp: () -> Unit): Modifier {
     val up = Modifier.onPreviewKeyEvent {
         if (it.type == KeyEventType.KeyDown && it.key == Key.DirectionUp) {
             onUp()
             true
         } else false
     }
-    return if (isFirstTile) up.focusRequester(entry) else up
+    return up.focusRequester(entry)
 }
 
 /** "Popular" alone is ambiguous when movies and series both have one: add the content type. */
@@ -296,7 +300,7 @@ private fun shelfTitle(name: String, apiType: String): String = when (apiType) {
     else -> name
 }
 
-private fun LazyListScope.shelf(key: String, title: String, content: LazyListScope.() -> Unit) {
+private fun LazyListScope.shelf(key: String, title: String, rowState: LazyListState? = null, content: LazyListScope.() -> Unit) {
     item(key = key) {
         Column {
             Text(
@@ -310,6 +314,7 @@ private fun LazyListScope.shelf(key: String, title: String, content: LazyListSco
             )
             // Focus ring and scale need room: the row is padded instead of clipped.
             LazyRow(
+                state = rowState ?: rememberLazyListState(),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 contentPadding = PaddingValues(horizontal = SideMargin, vertical = 4.dp),
                 content = content
@@ -326,14 +331,12 @@ private fun Hero(
     onDetail: (String, String, String) -> Unit,
     onLibrary: (MetaPreview) -> Unit,
     onImport: () -> Unit,
-    entryTile: FocusRequester,
     heroEntry: FocusRequester,
     onFocus: () -> Unit,
     onDown: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val down = Modifier.focusProperties { this.down = entryTile }
-        .onPreviewKeyEvent {
+    val down = Modifier.onPreviewKeyEvent {
             if (it.type == KeyEventType.KeyDown && it.key == Key.DirectionDown) {
                 onDown()
                 true
