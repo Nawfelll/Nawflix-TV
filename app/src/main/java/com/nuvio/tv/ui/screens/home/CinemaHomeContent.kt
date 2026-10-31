@@ -2,6 +2,7 @@ package com.nuvio.tv.ui.screens.home
 
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,6 +12,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,6 +23,11 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -28,12 +35,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.tv.material3.*
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.transformations
 import coil3.size.Size as CoilSize
 import com.nuvio.tv.core.perf.NawflixPerformance
+import com.nuvio.tv.core.qr.QrCodeGenerator
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.ui.components.CinemaScrimTransformation
 import com.nuvio.tv.ui.theme.NuvioTheme
@@ -46,6 +55,7 @@ private val TileWidth = 158.dp
 private val TileHeight = 92.dp
 private val TileShape = RoundedCornerShape(10.dp)
 private val PrimaryButtonShape = RoundedCornerShape(12.dp)
+private const val RegeCineClubUrl = "https://letterboxd.com/regelegorila/list/rege-cine-club/"
 
 /**
  * Home, organised like a streaming shelf screen: a hero billboard on top, titled shelves floating directly on the
@@ -65,6 +75,7 @@ internal fun CinemaHomeContent(
     // Zen layout: keep the billboard stable while moving through a shelf.
     // This also avoids decoding and repainting a full-screen backdrop on every DPAD press.
     val hero = weeklyMovieSelection.firstOrNull()
+    var showRegeCineClubQr by remember { mutableStateOf(false) }
     val catalogRows = remember(state.catalogRows) { state.catalogRows.filter { it.items.isNotEmpty() } }
     val rowLimit = if (potato) 12 else 24
     // The shelves list spans the whole screen (it scrolls over the hero), so geometric "down" from the hero buttons
@@ -74,9 +85,21 @@ internal fun CinemaHomeContent(
 
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    // Focus back on the hero or on the first shelf: bring the billboard back (shelves below it stay put).
+    // A synchronous scroll keeps the first shelf attached while the DPAD moves between it and the hero.
     val scrollToTop: () -> Unit = {
-        scope.launch { if (potato) listState.scrollToItem(0) else listState.animateScrollToItem(0) }
+        scope.launch { listState.scrollToItem(0) }
+    }
+    val focusHero: () -> Unit = {
+        scope.launch {
+            listState.scrollToItem(0)
+            heroEntry.requestFocus()
+        }
+    }
+    val focusFirstShelf: () -> Unit = {
+        scope.launch {
+            listState.scrollToItem(0)
+            entryTile.requestFocus()
+        }
     }
     val scrolledPastHero by remember {
         derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 24 }
@@ -146,6 +169,7 @@ internal fun CinemaHomeContent(
             entryTile = entryTile,
             heroEntry = heroEntry,
             onFocus = scrollToTop,
+            onDown = focusFirstShelf,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .height(shelvesTop)
@@ -162,7 +186,7 @@ internal fun CinemaHomeContent(
         ) {
             item(key = "hero-spacer") { Spacer(Modifier.height(shelvesTop)) }
 
-            shelf(WEEKLY_KEY, "Film du moment") {
+            shelf(WEEKLY_KEY, "Film de la semaine") {
                 itemsIndexed(weeklyMovieSelection, key = { _, item -> item.id }) { index, item ->
                     CinemaTile(
                         title = item.name,
@@ -171,7 +195,7 @@ internal fun CinemaHomeContent(
                         onClick = { onDetail(item.id, item.apiType, item.sourceAddonBaseUrl.orEmpty()) },
                         onFocus = {},
                         potato = potato,
-                        modifier = firstShelfModifier(true, index == 0, entryTile, heroEntry)
+                        modifier = firstShelfModifier(index == 0, entryTile, focusHero)
                     )
                 }
             }
@@ -207,17 +231,61 @@ internal fun CinemaHomeContent(
                     }
                 }
             }
+            shelf(REGE_KEY, "Rege Ciné Club") {
+                itemsIndexed(regeCineClubSelection, key = { _, item -> item.id }) { _, item ->
+                    CinemaTile(
+                        title = item.name,
+                        url = item.landscapePoster ?: item.poster,
+                        progress = null,
+                        onClick = { onDetail(item.id, item.apiType, item.sourceAddonBaseUrl.orEmpty()) },
+                        potato = potato
+                    )
+                }
+            }
+            item(key = "rege-cine-club") {
+                Column(Modifier.padding(horizontal = SideMargin)) {
+                    Text(
+                        "70 films sélectionnés par Regelegorila · Liste originale sur Letterboxd",
+                        color = Color.White.copy(alpha = .7f),
+                        fontSize = 14.sp
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    PrimaryAction("Voir la liste sur téléphone") { showRegeCineClubQr = true }
+                }
+            }
+        }
+    }
+    if (showRegeCineClubQr) {
+        val qr = remember { QrCodeGenerator.generate(RegeCineClubUrl, 512).asImageBitmap() }
+        Dialog(onDismissRequest = { showRegeCineClubQr = false }) {
+            Column(
+                modifier = Modifier.background(PageColor, RoundedCornerShape(20.dp)).padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("Rege Ciné Club", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
+                Text("Scannez pour voir la liste de Regelegorila", color = Color.White.copy(alpha = .7f), fontSize = 14.sp)
+                Spacer(Modifier.height(20.dp))
+                Image(qr, contentDescription = "QR code vers le Rege Ciné Club", modifier = Modifier.size(220.dp))
+                Spacer(Modifier.height(20.dp))
+                PrimaryAction("Fermer") { showRegeCineClubQr = false }
+            }
         }
     }
 }
 
 private const val CONTINUE_KEY = "continue-watching"
 private const val WEEKLY_KEY = "weekly-movies"
+private const val REGE_KEY = "rege-cine-club-films"
 
-/** First shelf: its first tile is the entry point from the hero, and "up" from any of its tiles goes to the hero. */
-private fun firstShelfModifier(isFirstShelf: Boolean, isFirstTile: Boolean, entry: FocusRequester, heroEntry: FocusRequester): Modifier {
-    if (!isFirstShelf) return Modifier
-    val up = Modifier.focusProperties { this.up = heroEntry }
+/** Route Up explicitly so a horizontally scrolled shelf always returns to a visible hero button. */
+private fun firstShelfModifier(isFirstTile: Boolean, entry: FocusRequester, onUp: () -> Unit): Modifier {
+    val up = Modifier.onPreviewKeyEvent {
+        if (it.type == KeyEventType.KeyDown && it.key == Key.DirectionUp) {
+            onUp()
+            true
+        } else false
+    }
     return if (isFirstTile) up.focusRequester(entry) else up
 }
 
@@ -261,9 +329,17 @@ private fun Hero(
     entryTile: FocusRequester,
     heroEntry: FocusRequester,
     onFocus: () -> Unit,
+    onDown: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val down = Modifier.focusProperties { this.down = entryTile }.onFocusChanged { if (it.isFocused) onFocus() }
+    val down = Modifier.focusProperties { this.down = entryTile }
+        .onPreviewKeyEvent {
+            if (it.type == KeyEventType.KeyDown && it.key == Key.DirectionDown) {
+                onDown()
+                true
+            } else false
+        }
+        .onFocusChanged { if (it.isFocused) onFocus() }
     Column(modifier, verticalArrangement = Arrangement.Bottom) {
         if (!hero?.logo.isNullOrBlank()) {
             AsyncImage(
