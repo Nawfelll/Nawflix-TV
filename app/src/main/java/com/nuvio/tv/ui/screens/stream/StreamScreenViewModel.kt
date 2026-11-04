@@ -406,7 +406,11 @@ class StreamScreenViewModel @Inject constructor(
         streamLoadScope = newScope
         streamLoadJob = newScope.launch {
             streamLoadCompleted = false
-            val playerSettings = playerSettingsDataStore.playerSettings.first()
+            val playerSettings = playerSettingsDataStore.playerSettings.first().copy(
+                streamAutoPlayMode = StreamAutoPlayMode.MANUAL,
+                streamReuseLastLinkEnabled = false,
+                streamAutoPlayPreferBingeGroupForNextEpisode = false
+            )
             if (manualSelection) {
                 directAutoPlayModeInitializedForSession = true
                 directAutoPlayFlowEnabledForSession = false
@@ -635,17 +639,10 @@ class StreamScreenViewModel @Inject constructor(
                 } else if (!shouldAutoSelect) {
                     null
                 } else {
-                    StreamAutoPlaySelector.selectAutoPlayStream(
-                        streams = allStreams,
-                        mode = playerSettings.streamAutoPlayMode,
-                        regexPattern = playerSettings.streamAutoPlayRegex,
-                        source = playerSettings.streamAutoPlaySource,
-                        installedAddonNames = installedAddonOrder.toSet(),
-                        selectedAddons = playerSettings.streamAutoPlaySelectedAddons,
-                        selectedPlugins = playerSettings.streamAutoPlaySelectedPlugins,
-                        preferredBingeGroup = persistedBingeGroup,
-                        preferBingeGroupInSelection = persistedBingeGroup != null
-                    )
+                    allStreams.firstOrNull { stream ->
+                        stream.addonName.contains("comet", ignoreCase = true) &&
+                            !stream.isExternal() && stream.getStreamUrl() != null
+                    }
                 }
                 if (selectedAutoPlayStream != null) {
                     resolvedAutoPlayTarget = true

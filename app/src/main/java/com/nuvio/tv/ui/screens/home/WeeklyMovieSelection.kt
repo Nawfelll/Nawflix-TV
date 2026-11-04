@@ -4,18 +4,13 @@ import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PosterShape
 
-/** Nawfel's Halloween selection for the 1.0.5 release, in display order. */
+/** Nawfel's weekly selection for the 1.0.8 release, in display order. */
 internal val weeklyMovieSelection: List<MetaPreview> = listOf(
-    weeklyMovie("tt37287335", "Obsession", "2026", "Un souhait amoureux tourne à l'obsession terrifiante."),
-    weeklyMovie("tt0077651", "Halloween : La Nuit des masques", "1978", "Michael Myers revient à Haddonfield la nuit d'Halloween."),
-    weeklyMovie("tt0081505", "Shining", "1980", "Un hôtel isolé, un hiver sans fin et une famille qui bascule."),
+    weeklyMovie("tt1392214", "Prisoners", "2013", "Deux fillettes disparaissent. Un père et un enquêteur cherchent la vérité."),
     weeklyMovie("tt0084787", "The Thing", "1982", "En Antarctique, une créature peut prendre l'apparence de chacun."),
-    weeklyMovie("tt0070047", "L'Exorciste", "1973", "Une famille affronte une présence inexplicable et terrifiante."),
-    weeklyMovie("tt0072271", "Massacre à la tronçonneuse", "1974", "Un voyage au Texas vire au cauchemar."),
-    weeklyMovie("tt0117571", "Scream", "1996", "Un tueur masqué joue avec les règles du cinéma d'horreur."),
-    weeklyMovie("tt0087800", "Les Griffes de la nuit", "1984", "Freddy Krueger transforme les rêves en pièges mortels."),
-    weeklyMovie("tt0076786", "Suspiria", "1977", "Une école de danse cache un secret aux couleurs hypnotiques."),
-    weeklyMovie("tt0078748", "Alien, le huitième passager", "1979", "Dans l'espace, l'équipage du Nostromo n'est plus seul.")
+    weeklyMovie("tt0353969", "Memories of Murder", "2003", "Deux enquêteurs traquent un tueur dans une province sud-coréenne."),
+    weeklyMovie("tt1139797", "Morse", "2008", "Un garçon solitaire se lie à une mystérieuse voisine."),
+    weeklyMovie("tt4263482", "The Witch", "2015", "Une famille isolée affronte la peur et le doute en Nouvelle-Angleterre.")
 )
 
 private fun weeklyMovie(id: String, title: String, year: String, summary: String): MetaPreview = MetaPreview(
@@ -29,7 +24,7 @@ private fun weeklyMovie(id: String, title: String, year: String, summary: String
     description = summary,
     releaseInfo = year,
     imdbRating = null,
-    genres = listOf("Horreur"),
+    genres = emptyList(),
     imdbId = id,
     landscapePoster = "https://images.metahub.space/background/medium/$id/img",
     sourceAddonBaseUrl = "https://v3-cinemeta.strem.io"

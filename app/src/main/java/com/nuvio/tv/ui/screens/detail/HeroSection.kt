@@ -100,6 +100,7 @@ fun HeroContentSection(
     nextEpisode: Video?,
     nextToWatch: NextToWatch?,
     onPlayClick: () -> Unit,
+    onChooseSource: (() -> Unit)? = null,
     isPlayEnabled: Boolean = true,
     onPlayLongPress: (() -> Unit)? = null,
     isInLibrary: Boolean,
@@ -268,6 +269,10 @@ fun HeroContentSection(
                                 onPlayFocusRestored()
                             }
                         )
+
+                        if (onChooseSource != null) {
+                            PlayButton(text = "Choisir une source", enabled = isPlayEnabled, onClick = onChooseSource)
+                        }
 
                         ActionIconButton(
                             icon = if (isInLibrary) Icons.Default.Check else null,
