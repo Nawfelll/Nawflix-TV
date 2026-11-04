@@ -2,7 +2,6 @@ package com.nuvio.tv.ui.screens.home
 
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,7 +12,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,14 +33,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.tv.material3.*
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.transformations
 import coil3.size.Size as CoilSize
 import com.nuvio.tv.core.perf.NawflixPerformance
-import com.nuvio.tv.core.qr.QrCodeGenerator
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.ui.components.CinemaScrimTransformation
 import com.nuvio.tv.ui.theme.NuvioTheme
@@ -55,7 +51,6 @@ private val TileWidth = 158.dp
 private val TileHeight = 92.dp
 private val TileShape = RoundedCornerShape(10.dp)
 private val PrimaryButtonShape = RoundedCornerShape(12.dp)
-private const val RegeCineClubUrl = "https://letterboxd.com/regelegorila/list/rege-cine-club/"
 
 /**
  * Home, organised like a streaming shelf screen: a hero billboard on top, titled shelves floating directly on the
@@ -75,7 +70,6 @@ internal fun CinemaHomeContent(
     // Zen layout: keep the billboard stable while moving through a shelf.
     // This also avoids decoding and repainting a full-screen backdrop on every DPAD press.
     val hero = weeklyMovieSelection.firstOrNull()
-    var showRegeCineClubQr by remember { mutableStateOf(false) }
     val catalogRows = remember(state.catalogRows) { state.catalogRows.filter { it.items.isNotEmpty() } }
     val rowLimit = if (potato) 12 else 24
     // LazyRow detaches off-screen tiles. Keep a requester for every weekly film and restore the last focused one.
@@ -235,7 +229,7 @@ internal fun CinemaHomeContent(
                     }
                 }
             }
-            shelf(REGE_KEY, "Rege Ciné Club") {
+            shelf(REGE_KEY, "Rege Ciné Club · Regelegorila") {
                 itemsIndexed(regeCineClubSelection, key = { _, item -> item.id }) { _, item ->
                     CinemaTile(
                         title = item.name,
@@ -245,34 +239,6 @@ internal fun CinemaHomeContent(
                         potato = potato
                     )
                 }
-            }
-            item(key = "rege-cine-club") {
-                Column(Modifier.padding(horizontal = SideMargin)) {
-                    Text(
-                        "70 films sélectionnés par Regelegorila · Liste originale sur Letterboxd",
-                        color = Color.White.copy(alpha = .7f),
-                        fontSize = 14.sp
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    PrimaryAction("Voir la liste sur téléphone") { showRegeCineClubQr = true }
-                }
-            }
-        }
-    }
-    if (showRegeCineClubQr) {
-        val qr = remember { QrCodeGenerator.generate(RegeCineClubUrl, 512).asImageBitmap() }
-        Dialog(onDismissRequest = { showRegeCineClubQr = false }) {
-            Column(
-                modifier = Modifier.background(PageColor, RoundedCornerShape(20.dp)).padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text("Rege Ciné Club", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(8.dp))
-                Text("Scannez pour voir la liste de Regelegorila", color = Color.White.copy(alpha = .7f), fontSize = 14.sp)
-                Spacer(Modifier.height(20.dp))
-                Image(qr, contentDescription = "QR code vers le Rege Ciné Club", modifier = Modifier.size(220.dp))
-                Spacer(Modifier.height(20.dp))
-                PrimaryAction("Fermer") { showRegeCineClubQr = false }
             }
         }
     }
