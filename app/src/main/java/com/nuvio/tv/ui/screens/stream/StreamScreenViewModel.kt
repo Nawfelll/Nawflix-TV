@@ -30,6 +30,7 @@ import com.nuvio.tv.data.local.PlayerPreference
 import com.nuvio.tv.data.local.PlayerSettings
 import com.nuvio.tv.data.local.PlayerSettingsDataStore
 import com.nuvio.tv.data.local.StreamAutoPlayMode
+import com.nuvio.tv.data.local.StreamAutoPlaySource
 import com.nuvio.tv.data.local.StreamBadgeSettingsDataStore
 import com.nuvio.tv.data.local.StreamLinkCacheDataStore
 import com.nuvio.tv.data.local.BingeGroupCacheDataStore
@@ -639,10 +640,15 @@ class StreamScreenViewModel @Inject constructor(
                 } else if (!shouldAutoSelect) {
                     null
                 } else {
-                    allStreams.firstOrNull { stream ->
-                        stream.addonName.contains("comet", ignoreCase = true) &&
-                            !stream.isExternal() && stream.getStreamUrl() != null
-                    }
+                    StreamAutoPlaySelector.selectAutoPlayStream(
+                        streams = allStreams,
+                        mode = StreamAutoPlayMode.FIRST_STREAM,
+                        regexPattern = "",
+                        source = StreamAutoPlaySource.ALL_SOURCES,
+                        installedAddonNames = installedAddonOrder.toSet(),
+                        selectedAddons = emptySet(),
+                        selectedPlugins = emptySet()
+                    )
                 }
                 if (selectedAutoPlayStream != null) {
                     resolvedAutoPlayTarget = true

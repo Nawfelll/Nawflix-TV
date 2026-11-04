@@ -136,7 +136,7 @@ android {
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
         minSdk = 24
         targetSdk = 36
-        versionCode = 1089
+        versionCode = 1090
         versionName = "1.0.8"
 
         buildConfigField("String", "PARENTAL_GUIDE_API_URL", "\"${localProperties.getProperty("PARENTAL_GUIDE_API_URL", "")}\"")
